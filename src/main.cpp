@@ -11,6 +11,9 @@
 #include "TFT_eSPI.h"
 
 #ifdef EPAPER_ENABLE
+#include "wifi_secrets.h"
+#include <WiFi.h>
+#include <time.h>
 EPaper epaper;
 
 // Seeed XIAO ESP32-S3: onboard BOOT button is GPIO0 (active low when pressed).
@@ -38,9 +41,48 @@ static void enterDeepSleepHourOrButton() {
 
   esp_sleep_enable_timer_wakeup(SLEEP_DURATION_US);
   // One pin in the mask: wake when BOOT (GPIO0) is low.
-  esp_sleep_enable_ext1_wakeup(1ULL << BOOT_BUTTON_PIN, ESP_EXT1_WAKEUP_ANY_LOW);
+  esp_sleep_enable_ext1_wakeup(1ULL << BOOT_BUTTON_PIN,
+                               ESP_EXT1_WAKEUP_ANY_LOW);
 
   esp_deep_sleep_start();
+}
+
+static constexpr uint32_t kWifiConnectTimeoutMs = 30'000;
+static constexpr uint32_t kNtpSyncTimeoutMs = 60'000;
+
+static bool connectWifi() {
+  WiFi.mode(WIFI_STA);
+  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+  const uint8_t status = WiFi.waitForConnectResult(kWifiConnectTimeoutMs);
+  if (status != WL_CONNECTED) {
+    Serial.println("WiFi: connection failed");
+    return false;
+  }
+  Serial.printf("WiFi: connected, IP %s\n", WiFi.localIP().toString().c_str());
+  return true;
+}
+
+static void syncTimeAndLog() {
+  configTime(WIFI_GMT_OFFSET_SEC, 0, "pool.ntp.org", "time.nist.gov",
+             "time.google.com");
+  struct tm timeinfo{};
+  const uint32_t start = millis();
+  bool synced = false;
+  while (millis() - start < kNtpSyncTimeoutMs) {
+    if (getLocalTime(&timeinfo, 1000)) {
+      synced = true;
+      break;
+    }
+    delay(200);
+  }
+  if (!synced) {
+    Serial.println("NTP: failed to obtain time");
+    return;
+  }
+  char buf[48];
+  strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%S", &timeinfo);
+  Serial.printf("Time (offset from UTC): %s (WIFI_GMT_OFFSET_SEC=%ld)\n", buf,
+                (long)WIFI_GMT_OFFSET_SEC);
 }
 
 static void printWakeupCause() {
@@ -68,8 +110,16 @@ void setup() {
   delay(500); // USB CDC often needs a moment before the first prints appear
   printWakeupCause();
 
+  if (connectWifi()) {
+    syncTimeAndLog();
+  }
+
   epaper.begin();
   drawScreenContent(epaper);
+
+  WiFi.disconnect(true);
+  WiFi.mode(WIFI_OFF);
+
   enterDeepSleepHourOrButton();
 #else
   Serial.begin(115200);

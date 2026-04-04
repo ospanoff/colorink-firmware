@@ -1,5 +1,7 @@
 .pio
 .cache
+include/wifi_secrets.h
+.env
 .dummy
 .vscode
 compile_commands.json

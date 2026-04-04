@@ -1,0 +1,26 @@
+---
+description: ESP32 + PlatformIO (Arduino framework) — use built-in APIs; discover before inventing
+globs: '**/*.{cpp,h,hpp,ino},platformio.ini,scripts/**/*.py'
+alwaysApply: false
+---
+
+# ESP32 PlatformIO (Arduino)
+
+## Prefer framework and library APIs
+
+- Use **Arduino-ESP32** types and functions from the installed core: `WiFi`, `HTTPClient`, `Preferences`, `esp_sleep_*`, `configTime` / `getLocalTime`, `WiFi.waitForConnectResult()`, etc. Prefer **`WiFi` / `WiFiSTA`** helpers over hand-rolled connect loops when they exist.
+- Prefer **ESP-IDF** symbols that are already exposed through the Arduino core or documented for Arduino-ESP32 rather than reimplementing the same behavior.
+
+## Do not invent APIs
+
+- **Before** adding a helper or a “wait/connect/parse” loop, **check** whether the framework already provides it (method on `WiFi`, `HTTPClient`, `SPI`, `Wire`, etc.).
+- **Locate definitions** in the active toolchain: PlatformIO’s `packages/framework-arduinoespressif32/` (e.g. `libraries/WiFi/src/`), or jump-to-definition in the IDE. If unsure, search headers in that framework tree or read the official **Arduino-ESP32** docs for your core version.
+
+## PlatformIO
+
+- Respect **`platformio.ini`**: `board`, `framework`, `build_flags`, `lib_deps`, `extra_scripts`. Do not assume arbitrary keys exist; confirm in [PlatformIO docs](https://docs.platformio.org/).
+- Extra Python scripts run under **SCons** — use `Import("env")` and documented patterns (e.g. `env.Execute`, `env["PROJECT_DIR"]`).
+
+## When something is missing
+
+- If there is no built-in, prefer a **small, explicit** use of documented primitives (e.g. `delay`, status polling) and **comment why** a named API is not used — do not add a parallel “framework” of custom wrappers unless the project already uses that pattern.
