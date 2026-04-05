@@ -1,4 +1,4 @@
-# colorink
+# colorink-firmware
 
 Firmware in the spirit of [TRMNL](https://usetrmnl.com/)-style low-power e-paper displays, targeting **Seeed XIAO ePaper Display** boards — **currently the EE02**.
 
