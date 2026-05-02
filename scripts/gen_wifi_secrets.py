@@ -1,5 +1,6 @@
 # Pre-build: writes include/wifi_secrets.h from WIFI_SSID, WIFI_PASSWORD,
 # and optional WIFI_GMT_OFFSET_SEC (default 0). Keeps credentials out of git.
+# WIFI_GMT_OFFSET_SEC is reserved for future use (e.g. NTP); time sync is not enabled in firmware.
 #
 # Values come from (highest priority first): existing process env, then
 # PROJECT_ROOT/.env parsed with python-dotenv (standard dotenv syntax).
