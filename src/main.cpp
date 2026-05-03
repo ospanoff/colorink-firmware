@@ -90,10 +90,16 @@ void setup() {
 
 #endif
 
+  Serial.println("epaper: begin…");
+  Serial.flush();
   epaper.begin();
+  Serial.println("epaper: begin done");
+  Serial.flush();
 
 #ifdef ED103TC2_DRIVER
   if (frameGray4 != nullptr) {
+    Serial.println("epaper: gray push + update (may take tens of seconds)…");
+    Serial.flush();
     epaper.initGrayMode(GRAY_LEVEL16);
     epaper.fillScreen(TFT_GRAY_15);
     epaper.pushImage(0, 0, TFT_WIDTH, TFT_HEIGHT,
@@ -101,6 +107,8 @@ void setup() {
     heap_caps_free(frameGray4);
     frameGray4 = nullptr;
     epaper.update();
+    Serial.println("epaper: update done");
+    Serial.flush();
   } else {
     epaper.fillScreen(TFT_WHITE);
     drawWakeBatteryScreen(epaper, wakeup_from_rtc_timer, battery_mv,
