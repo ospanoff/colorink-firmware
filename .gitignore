@@ -1,6 +1,7 @@
 .pio
 .cache
 include/wifi_secrets.h
+include/colorink_app_secrets.h
 .env
 .dummy
 .vscode

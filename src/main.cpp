@@ -15,8 +15,8 @@
 #include "ui/wake_screen.h"
 
 #ifdef USE_XIAO_EPAPER_DISPLAY_BOARD_EE03
-#include "plugins/seeed_xiao_ee03/calendar/calendar_config.h"
-#include "plugins/seeed_xiao_ee03/calendar/calendar_http.h"
+#include "colorink_app/colorink_app_config.h"
+#include "colorink_app/colorink_app_http.h"
 #include "imaging/bmp_decode.h"
 #include "net/wifi_station.h"
 #include <WiFi.h>
@@ -44,8 +44,7 @@ void setup() {
   delay(500); // USB CDC often needs a moment before the first prints appear
 
   const esp_sleep_wakeup_cause_t wakeup = esp_sleep_get_wakeup_cause();
-  const bool wakeup_from_rtc_timer =
-      (wakeup == ESP_SLEEP_WAKEUP_TIMER);
+  const bool wakeup_from_rtc_timer = (wakeup == ESP_SLEEP_WAKEUP_TIMER);
   const int32_t battery_mv = measureBatteryMilliVolts();
   const int battery_percent =
       approximateBatteryPercentNominal3700Mv(battery_mv);
@@ -61,21 +60,19 @@ void setup() {
 #ifdef USE_XIAO_EPAPER_DISPLAY_BOARD_EE03
 
   if (connectWifiStation()) {
-    const bool post_ok = calendarPostForceUpdate();
+    const bool post_ok = colorinkAppPostForceUpdate();
     uint8_t *bmpRam = nullptr;
     size_t bmpLen = 0;
     const bool fetch_ok =
-        post_ok && calendarDownloadImageBmpToPsram(&bmpRam, &bmpLen);
+        post_ok && colorinkAppDownloadImageBmpToPsram(&bmpRam, &bmpLen);
 
     bool decoded_ok = false;
     if (fetch_ok && bmpRam != nullptr) {
-      decoded_ok = bmpDecodeCalendarBmpLetterboxGray4PackedFromRam(
-          bmpRam, bmpLen,
-          kCalendarImageBmpWidth, kCalendarImageBmpHeight, TFT_WIDTH,
-          TFT_HEIGHT, &frameGray4);
+      decoded_ok = bmpDecodeLetterboxGray4PackedFromRam(
+          bmpRam, bmpLen, kColorinkAppExpectedBmpWidth,
+          kColorinkAppExpectedBmpHeight, TFT_WIDTH, TFT_HEIGHT, &frameGray4);
     }
-    Serial.printf("calendar: BMP decode → %s\n",
-                  decoded_ok ? "ok" : "failed");
+    Serial.printf("colorink: BMP decode → %s\n", decoded_ok ? "ok" : "failed");
     Serial.flush();
     if (!decoded_ok) {
       frameGray4 = nullptr;

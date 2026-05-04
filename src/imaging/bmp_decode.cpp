@@ -28,10 +28,9 @@ static uint16_t le16(const uint8_t *p) {
 }
 
 static uint32_t le32(const uint8_t *p) {
-  return static_cast<uint32_t>(p[0])
-         | (static_cast<uint32_t>(p[1]) << 8)
-         | (static_cast<uint32_t>(p[2]) << 16)
-         | (static_cast<uint32_t>(p[3]) << 24);
+  return static_cast<uint32_t>(p[0]) | (static_cast<uint32_t>(p[1]) << 8) |
+         (static_cast<uint32_t>(p[2]) << 16) |
+         (static_cast<uint32_t>(p[3]) << 24);
 }
 
 static inline uint8_t bgrToGray4(uint8_t b, uint8_t g, uint8_t r) {
@@ -44,15 +43,13 @@ static inline uint8_t bgrToGray4(uint8_t b, uint8_t g, uint8_t r) {
 
 static inline void setPackedGray4(uint8_t *buf, int dstW, int x, int y,
                                   uint8_t nib) {
-  const unsigned idx =
-      static_cast<unsigned>(y) * static_cast<unsigned>(dstW) +
-      static_cast<unsigned>(x);
+  const unsigned idx = static_cast<unsigned>(y) * static_cast<unsigned>(dstW) +
+                       static_cast<unsigned>(x);
   const size_t bo = idx >> 1u;
   if (idx & 1u) {
     buf[bo] = static_cast<uint8_t>((buf[bo] & 0xF0u) | (nib & 0x0Fu));
   } else {
-    buf[bo] = static_cast<uint8_t>((buf[bo] & 0x0Fu) |
-                                   ((nib & 0x0Fu) << 4u));
+    buf[bo] = static_cast<uint8_t>((buf[bo] & 0x0Fu) | ((nib & 0x0Fu) << 4u));
   }
 }
 
@@ -131,8 +128,8 @@ static bool parseBmpPalettizedOrRgb24FromRam(const uint8_t *d, size_t len,
   const uint16_t bitCount = le16(d + 28);
   const uint32_t compression = le32(d + 30);
 
-  if (biWidthSigned <= 0 || planes != 1 ||
-      (bitCount != 8 && bitCount != 24) || compression != 0u) {
+  if (biWidthSigned <= 0 || planes != 1 || (bitCount != 8 && bitCount != 24) ||
+      compression != 0u) {
     Serial.printf(
         "bmp(RAM): w=%ld bpp=%u comp=%u planes=%u (need bpp 8 or 24)\n",
         static_cast<long>(biWidthSigned), unsigned(bitCount),
@@ -200,17 +197,14 @@ static bool parseBmpPalettizedOrRgb24FromRam(const uint8_t *d, size_t len,
   return true;
 }
 
-bool bmpDecodeCalendarBmpLetterboxGray4PackedFromRam(const uint8_t *bmpData,
-                                                       size_t bmpLen,
-                                                       uint32_t expectedBmpW,
-                                                       uint32_t expectedBmpH,
-                                                       int dstW, int dstH,
-                                                       uint8_t **outGray4) {
+bool bmpDecodeLetterboxGray4PackedFromRam(const uint8_t *bmpData, size_t bmpLen,
+                                          uint32_t expectedBmpW,
+                                          uint32_t expectedBmpH, int dstW,
+                                          int dstH, uint8_t **outGray4) {
   *outGray4 = nullptr;
 
-  Serial.printf(
-      "bmp(RAM): decode gray16 (4 bpp packed) letterbox → %dx%d\n",
-      dstW, dstH);
+  Serial.printf("bmp(RAM): decode gray16 (4 bpp packed) letterbox → %dx%d\n",
+                dstW, dstH);
   Serial.flush();
 
   if (dstW <= 0 || dstH <= 0) {
@@ -265,10 +259,8 @@ bool bmpDecodeCalendarBmpLetterboxGray4PackedFromRam(const uint8_t *bmpData,
     return false;
   }
 
-  const int sxMax =
-      info.srcW > 1 ? static_cast<int>(info.srcW) - 1 : 0;
-  const int syMax =
-      info.srcH > 1 ? static_cast<int>(info.srcH) - 1 : 0;
+  const int sxMax = info.srcW > 1 ? static_cast<int>(info.srcW) - 1 : 0;
+  const int syMax = info.srcH > 1 ? static_cast<int>(info.srcH) - 1 : 0;
 
   for (int py = 0; py < scH; ++py) {
     const int syTop = (syMax * py) / denomY;
