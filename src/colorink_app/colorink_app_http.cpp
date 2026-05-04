@@ -1,5 +1,3 @@
-#ifdef USE_XIAO_EPAPER_DISPLAY_BOARD_EE03
-
 #include "colorink_app/colorink_app_http.h"
 
 #include "colorink_app/colorink_app_config.h"
@@ -131,5 +129,3 @@ bool colorinkAppDownloadImageBmpToPsram(uint8_t **outBuf, size_t *outLen) {
   *outLen = total;
   return true;
 }
-
-#endif

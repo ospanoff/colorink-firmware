@@ -1,7 +1,5 @@
 #include "imaging/bmp_decode.h"
 
-#ifdef USE_XIAO_EPAPER_DISPLAY_BOARD_EE03
-
 #include <Arduino.h>
 #include <cstddef>
 #include <cstdint>
@@ -252,5 +250,3 @@ bool bmpDecodeGray4PackedFromRam(const uint8_t *bmpData, size_t bmpLen,
   Serial.flush();
   return true;
 }
-
-#endif

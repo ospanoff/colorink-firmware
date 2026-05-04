@@ -9,35 +9,27 @@
  */
 
 #include "battery/battery.h"
+#include "colorink_app/colorink_app_http.h"
 #include "config/app_config.h"
 #include "log/wake_log.h"
+#include "net/wifi_station.h"
+#include "panel/display_bmp.h"
 #include "power/power_sleep.h"
 #include "ui/wake_screen.h"
-
-#ifdef USE_XIAO_EPAPER_DISPLAY_BOARD_EE03
-#include "colorink_app/colorink_app_config.h"
-#include "colorink_app/colorink_app_http.h"
-#include "imaging/bmp_decode.h"
-#include "net/wifi_station.h"
-#include <WiFi.h>
-#include <esp_heap_caps.h>
-#endif
 
 #include <Arduino.h>
 
 #include <TFT_eSPI.h>
+#include <WiFi.h>
+#include <esp_heap_caps.h>
 #include <esp_sleep.h>
 
 EPaper epaper;
-
-#ifdef USE_XIAO_EPAPER_DISPLAY_BOARD_EE03
 
 static void wipeWifiRadio() {
   WiFi.disconnect(true);
   WiFi.mode(WIFI_OFF);
 }
-
-#endif
 
 void setup() {
   Serial.begin(115200);
@@ -53,38 +45,19 @@ void setup() {
   printWakeBatteryToSerial(wakeup_from_rtc_timer, battery_mv, battery_percent);
   Serial.flush();
 
-#ifdef ED103TC2_DRIVER
-  uint8_t *frameGray4 = nullptr;
-#endif
-
-#ifdef USE_XIAO_EPAPER_DISPLAY_BOARD_EE03
+  uint8_t *bmpRam = nullptr;
+  size_t bmpLen = 0;
 
   if (connectWifiStation()) {
     const bool post_ok = colorinkAppPostForceUpdate();
-    uint8_t *bmpRam = nullptr;
-    size_t bmpLen = 0;
-    const bool fetch_ok =
+    const bool fetched =
         post_ok && colorinkAppDownloadImageBmpToPsram(&bmpRam, &bmpLen);
-
-    bool decoded_ok = false;
-    if (fetch_ok && bmpRam != nullptr) {
-      decoded_ok = bmpDecodeGray4PackedFromRam(bmpRam, bmpLen, TFT_WIDTH,
-                                               TFT_HEIGHT, &frameGray4);
+    if (!fetched) {
+      bmpRam = nullptr;
+      bmpLen = 0;
     }
-    Serial.printf("colorink: BMP decode → %s\n", decoded_ok ? "ok" : "failed");
-    Serial.flush();
-    if (!decoded_ok) {
-      frameGray4 = nullptr;
-    }
-
-    if (bmpRam != nullptr) {
-      heap_caps_free(bmpRam);
-    }
-
     wipeWifiRadio();
   }
-
-#endif
 
   Serial.println("epaper: begin…");
   Serial.flush();
@@ -92,29 +65,16 @@ void setup() {
   Serial.println("epaper: begin done");
   Serial.flush();
 
-#ifdef ED103TC2_DRIVER
-  if (frameGray4 != nullptr) {
-    Serial.println("epaper: gray push + update (may take tens of seconds)…");
-    Serial.flush();
-    epaper.initGrayMode(GRAY_LEVEL16);
-    epaper.fillScreen(TFT_GRAY_15);
-    epaper.pushImage(0, 0, TFT_WIDTH, TFT_HEIGHT,
-                     reinterpret_cast<uint16_t *>(frameGray4));
-    heap_caps_free(frameGray4);
-    frameGray4 = nullptr;
-    epaper.update();
-    Serial.println("epaper: update done");
-    Serial.flush();
-  } else {
+  const bool bmpShown = displayBmp(epaper, bmpRam, bmpLen);
+  if (!bmpShown) {
     epaper.fillScreen(TFT_WHITE);
     drawWakeBatteryScreen(epaper, wakeup_from_rtc_timer, battery_mv,
                           battery_percent);
   }
-#else
-  epaper.fillScreen(TFT_WHITE);
-  drawWakeBatteryScreen(epaper, wakeup_from_rtc_timer, battery_mv,
-                        battery_percent);
-#endif
+
+  if (bmpRam != nullptr) {
+    heap_caps_free(bmpRam);
+  }
 
   enterDeepSleepWakeOnRtcMicros(kSleepAfterRefreshUs);
 }
