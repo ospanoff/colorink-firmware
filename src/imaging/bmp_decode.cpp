@@ -3,7 +3,6 @@
 #ifdef USE_XIAO_EPAPER_DISPLAY_BOARD_EE03
 
 #include <Arduino.h>
-#include <TFT_eSPI.h>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
@@ -53,34 +52,6 @@ static inline void setPackedGray4(uint8_t *buf, int dstW, int x, int y,
   }
 }
 
-static inline void letterboxExtents(uint32_t srcW, uint32_t srcH, int dstW,
-                                    int dstH, int &scW, int &scH, int &x0,
-                                    int &y0) {
-  if (srcW == 0 || srcH == 0 || dstW <= 0 || dstH <= 0) {
-    scW = scH = x0 = y0 = 0;
-    return;
-  }
-  const double sx = static_cast<double>(dstW) / static_cast<double>(srcW);
-  const double sy = static_cast<double>(dstH) / static_cast<double>(srcH);
-  const double s = sx < sy ? sx : sy;
-  scW = static_cast<int>(static_cast<double>(srcW) * s + 0.5);
-  scH = static_cast<int>(static_cast<double>(srcH) * s + 0.5);
-  if (scW < 1) {
-    scW = 1;
-  }
-  if (scH < 1) {
-    scH = 1;
-  }
-  if (scW > dstW) {
-    scW = dstW;
-  }
-  if (scH > dstH) {
-    scH = dstH;
-  }
-  x0 = (dstW - scW) / 2;
-  y0 = (dstH - scH) / 2;
-}
-
 static void sampleBgrAtColumn(const uint8_t *lineBuf, const BmpPixelInfo &info,
                               unsigned sxCol, uint8_t &ob, uint8_t &og,
                               uint8_t &orv) {
@@ -101,8 +72,6 @@ static void sampleBgrAtColumn(const uint8_t *lineBuf, const BmpPixelInfo &info,
 }
 
 static bool parseBmpPalettizedOrRgb24FromRam(const uint8_t *d, size_t len,
-                                             uint32_t expectedBmpW,
-                                             uint32_t expectedBmpH,
                                              BmpPixelInfo &out) {
   if (len < 54u) {
     Serial.println("bmp(RAM): short header");
@@ -142,16 +111,6 @@ static bool parseBmpPalettizedOrRgb24FromRam(const uint8_t *d, size_t len,
   const int32_t bh = biHeightSigned;
   out.bottom_up = bh > 0;
   out.srcH = static_cast<uint32_t>(out.bottom_up ? bh : -bh);
-
-  if (expectedBmpW > 0 &&
-      (out.srcW != expectedBmpW || out.srcH != expectedBmpH)) {
-    Serial.printf(
-        "bmp(RAM): note bitmap %lux%lu (expected %lux%lu); decoding anyway\n",
-        static_cast<unsigned long>(out.srcW),
-        static_cast<unsigned long>(out.srcH),
-        static_cast<unsigned long>(expectedBmpW),
-        static_cast<unsigned long>(expectedBmpH));
-  }
 
   out.rowStride = static_cast<unsigned>(
       ((((unsigned long long)out.srcW * bitCount + 31u) / 32u) * 4u));
@@ -197,34 +156,44 @@ static bool parseBmpPalettizedOrRgb24FromRam(const uint8_t *d, size_t len,
   return true;
 }
 
-bool bmpDecodeLetterboxGray4PackedFromRam(const uint8_t *bmpData, size_t bmpLen,
-                                          uint32_t expectedBmpW,
-                                          uint32_t expectedBmpH, int dstW,
-                                          int dstH, uint8_t **outGray4) {
+bool bmpDecodeGray4PackedFromRam(const uint8_t *bmpData, size_t bmpLen,
+                                 int displayW, int displayH,
+                                 uint8_t **outGray4) {
   *outGray4 = nullptr;
 
-  Serial.printf("bmp(RAM): decode gray16 (4 bpp packed) letterbox → %dx%d\n",
-                dstW, dstH);
+  Serial.printf("bmp(RAM): decode gray16 (4 bpp packed) exact %dx%d\n",
+                displayW, displayH);
   Serial.flush();
 
-  if (dstW <= 0 || dstH <= 0) {
+  if (displayW <= 0 || displayH <= 0) {
     return false;
   }
-  if ((dstW & 1) != 0) {
-    Serial.println("bmp(RAM): gray4 decode needs even dst width");
+  if ((displayW & 1) != 0) {
+    Serial.println("bmp(RAM): gray4 decode needs even display width");
     return false;
   }
 
   BmpPixelInfo info;
-  if (!parseBmpPalettizedOrRgb24FromRam(bmpData, bmpLen, expectedBmpW,
-                                        expectedBmpH, info)) {
+  if (!parseBmpPalettizedOrRgb24FromRam(bmpData, bmpLen, info)) {
+    return false;
+  }
+
+  const auto dw = static_cast<uint32_t>(displayW);
+  const auto dh = static_cast<uint32_t>(displayH);
+  if (info.srcW != dw || info.srcH != dh) {
+    Serial.printf("bmp(RAM): bitmap %lux%lu does not match display %lux%lu\n",
+                  static_cast<unsigned long>(info.srcW),
+                  static_cast<unsigned long>(info.srcH),
+                  static_cast<unsigned long>(dw),
+                  static_cast<unsigned long>(dh));
+    Serial.flush();
     return false;
   }
 
   const uint8_t *pixBase = bmpData + info.bfOffBits;
 
   const size_t packedBytes =
-      (static_cast<size_t>(dstW) * static_cast<size_t>(dstH)) / 2u;
+      (static_cast<size_t>(displayW) * static_cast<size_t>(displayH)) / 2u;
 
   auto *buf =
       static_cast<uint8_t *>(heap_caps_malloc(packedBytes, MALLOC_CAP_SPIRAM));
@@ -234,15 +203,6 @@ bool bmpDecodeLetterboxGray4PackedFromRam(const uint8_t *bmpData, size_t bmpLen,
   }
 
   memset(buf, 0xFFu, packedBytes);
-
-  int scW = 0;
-  int scH = 0;
-  int x0 = 0;
-  int y0 = 0;
-  letterboxExtents(info.srcW, info.srcH, dstW, dstH, scW, scH, x0, y0);
-
-  const int denomX = scW > 1 ? scW - 1 : 1;
-  const int denomY = scH > 1 ? scH - 1 : 1;
 
   auto physRowBottomUp = [&](int32_t rowFromTop) -> unsigned {
     if (!info.bottom_up) {
@@ -259,12 +219,8 @@ bool bmpDecodeLetterboxGray4PackedFromRam(const uint8_t *bmpData, size_t bmpLen,
     return false;
   }
 
-  const int sxMax = info.srcW > 1 ? static_cast<int>(info.srcW) - 1 : 0;
-  const int syMax = info.srcH > 1 ? static_cast<int>(info.srcH) - 1 : 0;
-
-  for (int py = 0; py < scH; ++py) {
-    const int syTop = (syMax * py) / denomY;
-    const unsigned fileRow = physRowBottomUp(syTop);
+  for (int py = 0; py < displayH; ++py) {
+    const unsigned fileRow = physRowBottomUp(static_cast<int32_t>(py));
     const size_t rowOff =
         static_cast<size_t>(fileRow) * static_cast<size_t>(info.rowStride);
     const uint64_t rowEnd =
@@ -278,13 +234,11 @@ bool bmpDecodeLetterboxGray4PackedFromRam(const uint8_t *bmpData, size_t bmpLen,
     }
     memcpy(lineBuf, pixBase + rowOff, info.rowStride);
 
-    for (int px = 0; px < scW; ++px) {
-      const unsigned sxPixel =
-          sxMax <= 0 ? 0u : static_cast<unsigned>((sxMax * px) / denomX);
+    for (int px = 0; px < displayW; ++px) {
       uint8_t bp = 0, gp = 0, rp = 0;
-      sampleBgrAtColumn(lineBuf, info, sxPixel, bp, gp, rp);
+      sampleBgrAtColumn(lineBuf, info, static_cast<unsigned>(px), bp, gp, rp);
       const uint8_t g4 = bgrToGray4(bp, gp, rp);
-      setPackedGray4(buf, dstW, x0 + px, y0 + py, g4);
+      setPackedGray4(buf, displayW, px, py, g4);
     }
     if ((py & 0x3F) == 0) {
       yield();

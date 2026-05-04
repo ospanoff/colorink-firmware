@@ -68,9 +68,8 @@ void setup() {
 
     bool decoded_ok = false;
     if (fetch_ok && bmpRam != nullptr) {
-      decoded_ok = bmpDecodeLetterboxGray4PackedFromRam(
-          bmpRam, bmpLen, kColorinkAppExpectedBmpWidth,
-          kColorinkAppExpectedBmpHeight, TFT_WIDTH, TFT_HEIGHT, &frameGray4);
+      decoded_ok = bmpDecodeGray4PackedFromRam(bmpRam, bmpLen, TFT_WIDTH,
+                                               TFT_HEIGHT, &frameGray4);
     }
     Serial.printf("colorink: BMP decode → %s\n", decoded_ok ? "ok" : "failed");
     Serial.flush();

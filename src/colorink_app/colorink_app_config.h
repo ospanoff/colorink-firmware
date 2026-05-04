@@ -14,8 +14,3 @@ inline constexpr const char kColorinkAppHttpHeaderClientId[] = "X-Device-ID";
 /** Idle read/write timeout per socket syscall (covers slow renders / large
  * body). */
 inline constexpr uint32_t kColorinkAppIoTimeoutMs = 120000UL;
-
-/** Nominal BMP dimensions from server /image — caller chooses decode target;
- * letterboxing if BMP differs. */
-inline constexpr uint32_t kColorinkAppExpectedBmpWidth = 1872;
-inline constexpr uint32_t kColorinkAppExpectedBmpHeight = 1404;
