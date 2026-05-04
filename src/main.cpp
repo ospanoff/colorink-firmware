@@ -1,12 +1,4 @@
-/*
- * Supported Colors:
- * - TFT_WHITE
- * - TFT_BLACK
- * - TFT_YELLOW
- * - TFT_GREEN
- * - TFT_BLUE
- * - TFT_RED
- */
+// Deep-sleep wake: WiFi → ColorInk BMP fetch → e-paper paint → RTC wake stub.
 
 #include "battery/battery.h"
 #include "colorink_app/colorink_app_http.h"
@@ -15,7 +7,7 @@
 #include "net/wifi_station.h"
 #include "panel/display_bmp.h"
 #include "power/power_sleep.h"
-#include "ui/wake_screen.h"
+#include "ui/boot_display_error.h"
 
 #include <Arduino.h>
 
@@ -45,14 +37,18 @@ void setup() {
   printWakeBatteryToSerial(wakeup_from_rtc_timer, battery_mv, battery_percent);
   Serial.flush();
 
+  BootDisplayError boot_err = BootDisplayError::None;
   uint8_t *bmpRam = nullptr;
   size_t bmpLen = 0;
 
-  if (connectWifiStation()) {
-    const bool fetched = colorinkAppRefreshBmpToPsram(&bmpRam, &bmpLen);
-    if (!fetched) {
-      bmpRam = nullptr;
-      bmpLen = 0;
+  const BootDisplayError wifi_err = connectWifiStation();
+  if (wifi_err != BootDisplayError::None) {
+    boot_err = wifi_err;
+  } else {
+    const BootDisplayError refresh_err =
+        colorinkAppRefreshBmpToPsram(&bmpRam, &bmpLen);
+    if (refresh_err != BootDisplayError::None) {
+      boot_err = refresh_err;
     }
     wipeWifiRadio();
   }
@@ -63,12 +59,15 @@ void setup() {
   Serial.println("epaper: begin done");
   Serial.flush();
 
-  const bool bmpShown = displayBmp(epaper, bmpRam, bmpLen);
-  if (!bmpShown) {
-    epaper.fillScreen(TFT_WHITE);
-    drawWakeBatteryScreen(epaper, wakeup_from_rtc_timer, battery_mv,
-                          battery_percent);
+  if (boot_err == BootDisplayError::None) {
+    const BootDisplayError bmp_err = displayBmp(epaper, bmpRam, bmpLen);
+    if (bmp_err != BootDisplayError::None) {
+      boot_err = bmp_err;
+    }
   }
+
+  drawBootErrorTopRight(epaper, boot_err);
+  epaper.update();
 
   if (bmpRam != nullptr) {
     heap_caps_free(bmpRam);

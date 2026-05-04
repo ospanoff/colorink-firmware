@@ -5,8 +5,10 @@
 
 #if defined(ED103TC2_DRIVER)
 
-#include "ui/wake_screen.h"
+#include "ui/boot_display_error.h"
+#include <TFT_eSPI.h>
 
-bool displayBmpEe03Ed103(EPaper &epaper, const uint8_t *bmpRam, size_t bmpLen);
+BootDisplayError displayBmpEe03Ed103(EPaper &epaper, const uint8_t *bmpRam,
+                                     size_t bmpLen);
 
 #endif

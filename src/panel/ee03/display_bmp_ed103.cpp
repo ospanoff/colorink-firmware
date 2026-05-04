@@ -9,11 +9,12 @@
 
 #include <esp_heap_caps.h>
 
-bool displayBmpEe03Ed103(EPaper &epaper, const uint8_t *bmpRam, size_t bmpLen) {
+BootDisplayError displayBmpEe03Ed103(EPaper &epaper, const uint8_t *bmpRam,
+                                     size_t bmpLen) {
   if (bmpRam == nullptr || bmpLen == 0) {
     Serial.println("colorink: BMP decode → failed (no data)");
     Serial.flush();
-    return false;
+    return BootDisplayError::BmpNoData;
   }
 
   uint8_t *packedGray4 = nullptr;
@@ -27,20 +28,19 @@ bool displayBmpEe03Ed103(EPaper &epaper, const uint8_t *bmpRam, size_t bmpLen) {
     if (packedGray4 != nullptr) {
       heap_caps_free(packedGray4);
     }
-    return false;
+    return BootDisplayError::BmpDecodeFailed;
   }
 
-  Serial.println("epaper: gray push + update (may take tens of seconds)…");
+  Serial.println("epaper: gray push (update deferred)…");
   Serial.flush();
   epaper.initGrayMode(GRAY_LEVEL16);
   epaper.fillScreen(TFT_GRAY_15);
   epaper.pushImage(0, 0, TFT_WIDTH, TFT_HEIGHT,
                    reinterpret_cast<uint16_t *>(packedGray4));
   heap_caps_free(packedGray4);
-  epaper.update();
-  Serial.println("epaper: update done");
+  Serial.println("epaper: push done");
   Serial.flush();
-  return true;
+  return BootDisplayError::None;
 }
 
 #endif

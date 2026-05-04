@@ -12,11 +12,11 @@ static void slog(const char *line) {
   Serial.flush();
 }
 
-static bool postForceUpdate(WiFiClient &client) {
+static BootDisplayError postForceUpdate(WiFiClient &client) {
   HTTPClient http;
   if (!http.begin(client, String(kColorinkAppHttpBaseUrl))) {
     Serial.println("colorink: POST begin failed");
-    return false;
+    return BootDisplayError::ColorInkPostBeginFailed;
   }
   http.addHeader(kColorinkAppHttpHeaderClientId, COLORINK_DEVICE_ID);
   http.addHeader(String("Content-Type"), String("application/json"));
@@ -25,11 +25,14 @@ static bool postForceUpdate(WiFiClient &client) {
   Serial.flush();
   http.end();
 
-  return code >= 200 && code < 300;
+  if (code >= 200 && code < 300) {
+    return BootDisplayError::None;
+  }
+  return BootDisplayError::ColorInkPostRejected;
 }
 
-static bool downloadImageBmpToPsram(WiFiClient &client, uint8_t **outBuf,
-                                    size_t *outLen) {
+static BootDisplayError
+downloadImageBmpToPsram(WiFiClient &client, uint8_t **outBuf, size_t *outLen) {
   *outBuf = nullptr;
   *outLen = 0;
 
@@ -38,7 +41,7 @@ static bool downloadImageBmpToPsram(WiFiClient &client, uint8_t **outBuf,
   url += "/image";
   if (!http.begin(client, url)) {
     Serial.println("colorink: GET begin failed");
-    return false;
+    return BootDisplayError::ColorInkGetBeginFailed;
   }
   http.addHeader(kColorinkAppHttpHeaderClientId, COLORINK_DEVICE_ID);
 
@@ -47,14 +50,14 @@ static bool downloadImageBmpToPsram(WiFiClient &client, uint8_t **outBuf,
   Serial.flush();
   if (code != HTTP_CODE_OK) {
     http.end();
-    return false;
+    return BootDisplayError::ColorInkImageHttpNotOk;
   }
 
   const int bodyLen = http.getSize();
   if (bodyLen <= 0) {
     slog("colorink: image needs Content-Length (chunked unsupported)");
     http.end();
-    return false;
+    return BootDisplayError::ColorInkNoContentLength;
   }
 
   Serial.printf("colorink: loading %d B into PSRAM…\n", bodyLen);
@@ -65,7 +68,7 @@ static bool downloadImageBmpToPsram(WiFiClient &client, uint8_t **outBuf,
   if (!buf) {
     Serial.println("colorink: PSRAM alloc failed");
     http.end();
-    return false;
+    return BootDisplayError::ColorInkPsramAllocFailed;
   }
 
   WiFiClient *stream = http.getStreamPtr();
@@ -78,7 +81,7 @@ static bool downloadImageBmpToPsram(WiFiClient &client, uint8_t **outBuf,
       Serial.println("colorink: PSRAM fill timeout");
       heap_caps_free(buf);
       http.end();
-      return false;
+      return BootDisplayError::ColorInkReadTimeout;
     }
 
     const int avail = stream->available();
@@ -117,23 +120,25 @@ static bool downloadImageBmpToPsram(WiFiClient &client, uint8_t **outBuf,
     Serial.printf("colorink: incomplete body got=%u expected=%u\n",
                   unsigned(filled), unsigned(total));
     heap_caps_free(buf);
-    return false;
+    return BootDisplayError::ColorInkIncompleteBody;
   }
 
   *outBuf = buf;
   *outLen = total;
-  return true;
+  return BootDisplayError::None;
 }
 
-bool colorinkAppRefreshBmpToPsram(uint8_t **outBuf, size_t *outLen) {
+BootDisplayError colorinkAppRefreshBmpToPsram(uint8_t **outBuf,
+                                              size_t *outLen) {
   *outBuf = nullptr;
   *outLen = 0;
 
   WiFiClient client;
   client.setConnectionTimeout(kColorinkAppIoTimeoutMs);
 
-  if (!postForceUpdate(client)) {
-    return false;
+  const BootDisplayError post_err = postForceUpdate(client);
+  if (post_err != BootDisplayError::None) {
+    return post_err;
   }
   return downloadImageBmpToPsram(client, outBuf, outLen);
 }

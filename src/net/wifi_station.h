@@ -1,3 +1,6 @@
 #pragma once
 
-bool connectWifiStation();
+#include "ui/boot_display_error.h"
+
+/** Returns BootDisplayError::None when connected to the AP. */
+BootDisplayError connectWifiStation();

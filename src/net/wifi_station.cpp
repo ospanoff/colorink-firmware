@@ -4,14 +4,14 @@
 #include <Arduino.h>
 #include <WiFi.h>
 
-bool connectWifiStation() {
+BootDisplayError connectWifiStation() {
   WiFi.mode(WIFI_STA);
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
   const uint8_t status = WiFi.waitForConnectResult(30'000);
   if (status != WL_CONNECTED) {
     Serial.println("WiFi: connection failed");
-    return false;
+    return BootDisplayError::WifiConnectFailed;
   }
   Serial.printf("WiFi: connected, IP %s\n", WiFi.localIP().toString().c_str());
-  return true;
+  return BootDisplayError::None;
 }
