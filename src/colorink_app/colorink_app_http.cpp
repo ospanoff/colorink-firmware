@@ -12,10 +12,7 @@ static void slog(const char *line) {
   Serial.flush();
 }
 
-bool colorinkAppPostForceUpdate() {
-  WiFiClient client;
-  client.setConnectionTimeout(kColorinkAppIoTimeoutMs);
-
+static bool postForceUpdate(WiFiClient &client) {
   HTTPClient http;
   if (!http.begin(client, String(kColorinkAppHttpBaseUrl))) {
     Serial.println("colorink: POST begin failed");
@@ -31,12 +28,10 @@ bool colorinkAppPostForceUpdate() {
   return code >= 200 && code < 300;
 }
 
-bool colorinkAppDownloadImageBmpToPsram(uint8_t **outBuf, size_t *outLen) {
+static bool downloadImageBmpToPsram(WiFiClient &client, uint8_t **outBuf,
+                                    size_t *outLen) {
   *outBuf = nullptr;
   *outLen = 0;
-
-  WiFiClient client;
-  client.setConnectionTimeout(kColorinkAppIoTimeoutMs);
 
   HTTPClient http;
   String url(kColorinkAppHttpBaseUrl);
@@ -128,4 +123,17 @@ bool colorinkAppDownloadImageBmpToPsram(uint8_t **outBuf, size_t *outLen) {
   *outBuf = buf;
   *outLen = total;
   return true;
+}
+
+bool colorinkAppRefreshBmpToPsram(uint8_t **outBuf, size_t *outLen) {
+  *outBuf = nullptr;
+  *outLen = 0;
+
+  WiFiClient client;
+  client.setConnectionTimeout(kColorinkAppIoTimeoutMs);
+
+  if (!postForceUpdate(client)) {
+    return false;
+  }
+  return downloadImageBmpToPsram(client, outBuf, outLen);
 }

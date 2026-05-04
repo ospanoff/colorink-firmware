@@ -3,5 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 
-bool colorinkAppPostForceUpdate();
-bool colorinkAppDownloadImageBmpToPsram(uint8_t **outBuf, size_t *outLen);
+/** Ask the plugin to regenerate the BMP, then download it into PSRAM.
+ * On failure, *outBuf stays nullptr and *outLen zero.
+ */
+bool colorinkAppRefreshBmpToPsram(uint8_t **outBuf, size_t *outLen);

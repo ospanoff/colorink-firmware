@@ -49,9 +49,7 @@ void setup() {
   size_t bmpLen = 0;
 
   if (connectWifiStation()) {
-    const bool post_ok = colorinkAppPostForceUpdate();
-    const bool fetched =
-        post_ok && colorinkAppDownloadImageBmpToPsram(&bmpRam, &bmpLen);
+    const bool fetched = colorinkAppRefreshBmpToPsram(&bmpRam, &bmpLen);
     if (!fetched) {
       bmpRam = nullptr;
       bmpLen = 0;
