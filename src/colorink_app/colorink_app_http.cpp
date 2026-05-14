@@ -5,6 +5,7 @@
 #include <Arduino.h>
 #include <HTTPClient.h>
 #include <WiFi.h>
+#include <cstdint>
 #include <esp_heap_caps.h>
 
 static void slog(const char *line) {
@@ -18,6 +19,7 @@ static BootDisplayError postForceUpdate(WiFiClient &client) {
     Serial.println("colorink: POST begin failed");
     return BootDisplayError::ColorInkPostBeginFailed;
   }
+  http.setTimeout(UINT16_MAX);
   http.addHeader(kColorinkAppHttpHeaderClientId, COLORINK_DEVICE_ID);
   http.addHeader(String("Content-Type"), String("application/json"));
   const int code = http.POST(String("{\"forceUpdate\":true}"));
@@ -43,6 +45,7 @@ downloadImageBmpToPsram(WiFiClient &client, uint8_t **outBuf, size_t *outLen) {
     Serial.println("colorink: GET begin failed");
     return BootDisplayError::ColorInkGetBeginFailed;
   }
+  http.setTimeout(UINT16_MAX);
   http.addHeader(kColorinkAppHttpHeaderClientId, COLORINK_DEVICE_ID);
 
   const int code = http.GET();
@@ -75,9 +78,11 @@ downloadImageBmpToPsram(WiFiClient &client, uint8_t **outBuf, size_t *outLen) {
   size_t filled = 0;
   const size_t total = static_cast<size_t>(bodyLen);
   const uint32_t t0_ms = millis();
+  // Total wall time for body read; per-read idle is UINT16_MAX via http.setTimeout above.
+  constexpr uint32_t kBodyReadWallMs = 120000UL;
 
   while (filled < total) {
-    if (millis() - t0_ms > kColorinkAppIoTimeoutMs) {
+    if (millis() - t0_ms > kBodyReadWallMs) {
       Serial.println("colorink: PSRAM fill timeout");
       heap_caps_free(buf);
       http.end();
@@ -134,7 +139,6 @@ BootDisplayError colorinkAppRefreshBmpToPsram(uint8_t **outBuf,
   *outLen = 0;
 
   WiFiClient client;
-  client.setConnectionTimeout(kColorinkAppIoTimeoutMs);
 
   const BootDisplayError post_err = postForceUpdate(client);
   if (post_err != BootDisplayError::None) {
