@@ -5,7 +5,7 @@
 
 #if defined(ED103TC2_DRIVER)
 
-#include "ui/boot_display_error.h"
+#include "boot_display_error.h"
 #include <TFT_eSPI.h>
 
 BootDisplayError displayBmpEe03Ed103(EPaper &epaper, const uint8_t *bmpRam,

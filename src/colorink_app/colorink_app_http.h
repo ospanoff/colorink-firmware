@@ -1,6 +1,6 @@
 #pragma once
 
-#include "ui/boot_display_error.h"
+#include "boot_display_error.h"
 
 #include <cstddef>
 #include <cstdint>

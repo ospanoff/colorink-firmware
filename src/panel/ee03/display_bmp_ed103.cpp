@@ -33,10 +33,9 @@ BootDisplayError displayBmpEe03Ed103(EPaper &epaper, const uint8_t *bmpRam,
 
   Serial.println("epaper: gray push (update deferred)…");
   Serial.flush();
-  epaper.initGrayMode(GRAY_LEVEL16);
-  epaper.fillScreen(TFT_GRAY_15);
+  // Framebuffer: prepareEpaperFramebuffer() after epaper.begin() (see main).
   epaper.pushImage(0, 0, TFT_WIDTH, TFT_HEIGHT,
-                   reinterpret_cast<uint16_t *>(packedGray4));
+                   reinterpret_cast<uint16_t *>(packedGray4), 4);
   heap_caps_free(packedGray4);
   Serial.println("epaper: push done");
   Serial.flush();

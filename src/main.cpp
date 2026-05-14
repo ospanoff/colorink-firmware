@@ -6,8 +6,9 @@
 #include "log/wake_log.h"
 #include "net/wifi_station.h"
 #include "panel/display_bmp.h"
+#include "panel/epaper_framebuffer_prepare.h"
 #include "power/power_sleep.h"
-#include "ui/boot_display_error.h"
+#include "ui/wake_display_overlays.h"
 
 #include <Arduino.h>
 
@@ -37,6 +38,7 @@ void setup() {
   printWakeBatteryToSerial(wakeup_from_rtc_timer, battery_mv, battery_percent);
   Serial.flush();
 
+  // boot_err: WiFi or HTTP→PSRAM; bmp_err: BMP decode / epaper paint (after begin).
   BootDisplayError boot_err = BootDisplayError::None;
   uint8_t *bmpRam = nullptr;
   size_t bmpLen = 0;
@@ -59,14 +61,21 @@ void setup() {
   Serial.println("epaper: begin done");
   Serial.flush();
 
-  if (boot_err == BootDisplayError::None) {
-    const BootDisplayError bmp_err = displayBmp(epaper, bmpRam, bmpLen);
-    if (bmp_err != BootDisplayError::None) {
-      boot_err = bmp_err;
-    }
+  prepareEpaperFramebuffer(epaper);
+
+  BootDisplayError bmp_err = BootDisplayError::None;
+  // Only paint when WiFi + fetch succeeded (boot_err == None). On failure, HTTP
+  // clears bmpRam; this guard makes that contract obvious and avoids painting if
+  // boot_err is ever set while a buffer exists.
+  if (boot_err == BootDisplayError::None && bmpRam != nullptr && bmpLen > 0) {
+    bmp_err = displayBmp(epaper, bmpRam, bmpLen);
   }
 
-  drawBootErrorTopRight(epaper, boot_err);
+  const BootDisplayError overlay_err =
+      (boot_err != BootDisplayError::None) ? boot_err : bmp_err;
+
+  drawWakeErrorOverlayTopRight(epaper, overlay_err);
+  drawWakeLowBatteryBottomRight(epaper, battery_percent);
   epaper.update();
 
   if (bmpRam != nullptr) {
