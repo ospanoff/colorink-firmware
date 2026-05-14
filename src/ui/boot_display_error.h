@@ -21,6 +21,7 @@ enum class BootDisplayError : uint8_t {
 
 const char *bootDisplayErrorShortLabel(BootDisplayError e);
 
-/** Draw a short label at the top-right using opaque text (does not clear the
- * panel). Caller runs epaper.update() after all painting. */
+/** Draw a short label at the top-right with opaque text (does not clear the
+ * panel). Caller runs epaper.update() after all painting. On multigray EPaper,
+ * uses gray indices compatible with the 4bpp sprite buffer. */
 void drawBootErrorTopRight(EPaper &display, BootDisplayError error);

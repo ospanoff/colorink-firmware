@@ -45,7 +45,13 @@ void drawBootErrorTopRight(EPaper &display, BootDisplayError error) {
 
   display.setTextDatum(TR_DATUM);
   display.setTextSize(text_size);
-  display.setTextColor(TFT_BLACK, TFT_WHITE);
+  // Multigray EPaper uses 4bpp sprites; TFT_BLACK/WHITE stay RGB565 in Seeed_GFX
+  // and corrupt the framebuffer. Use gray indices (same as initGrayMode / BMP bg).
+#ifdef USE_MUTIGRAY_EPAPER
+  display.setTextColor(TFT_GRAY_0, TFT_GRAY_15, true);
+#else
+  display.setTextColor(TFT_BLACK, TFT_WHITE, true);
+#endif
   display.drawString(msg, display.width() - pad_x, pad_y);
   display.setTextDatum(TL_DATUM);
 }

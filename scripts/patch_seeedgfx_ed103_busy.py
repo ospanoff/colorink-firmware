@@ -1,4 +1,4 @@
-# PlatformIO pre: script — fix Seeed_GFX ED103 CHECK_BUSY macro (V3.0.0).
+# PlatformIO pre: script — fix Seeed_GFX ED103 CHECK_BUSY macro (still present in V3.1.0).
 # CHECK_BUSY used `} while (true)` so it never returned after the first wait; it must
 # be `} while (0)` (run tconWaitForReady once per invocation), matching other drivers.
 from pathlib import Path
