@@ -6,6 +6,8 @@
 #include <HTTPClient.h>
 #include <WiFi.h>
 #include <cstdint>
+#include <cstdio>
+#include <cstring>
 #include <esp_heap_caps.h>
 
 static void slog(const char *line) {
@@ -78,7 +80,8 @@ downloadImageBmpToPsram(WiFiClient &client, uint8_t **outBuf, size_t *outLen) {
   size_t filled = 0;
   const size_t total = static_cast<size_t>(bodyLen);
   const uint32_t t0_ms = millis();
-  // Total wall time for body read; per-read idle is UINT16_MAX via http.setTimeout above.
+  // Total wall time for body read; per-read idle is UINT16_MAX via
+  // http.setTimeout above.
   constexpr uint32_t kBodyReadWallMs = 120000UL;
 
   while (filled < total) {
@@ -145,4 +148,84 @@ BootDisplayError colorinkAppRefreshBmpToPsram(uint8_t **outBuf,
     return post_err;
   }
   return downloadImageBmpToPsram(client, outBuf, outLen);
+}
+
+static void appendJsonEscaped(String &out, const char *src) {
+  for (; *src != '\0'; ++src) {
+    const char c = *src;
+    switch (c) {
+    case '\\':
+      out += F("\\\\");
+      break;
+    case '"':
+      out += F("\\\"");
+      break;
+    case '\n':
+      out += F("\\n");
+      break;
+    case '\r':
+      out += F("\\r");
+      break;
+    case '\t':
+      out += F("\\t");
+      break;
+    default: {
+      const auto u = static_cast<unsigned char>(c);
+      if (u >= 0x20) {
+        out += c;
+      }
+      break;
+    }
+    }
+  }
+}
+
+/** POST ``logUtf8`` to device-logs URL (JSON envelope, ``X-Device-ID``);
+ * TU-local. */
+static void postDeviceLogsHttp(const char *logUtf8) {
+  if (logUtf8 == nullptr || logUtf8[0] == '\0') {
+    return;
+  }
+  WiFiClient client;
+  constexpr uint16_t kLogHttpTimeoutMs = 8000;
+
+  String envelope;
+  const size_t n = strlen(logUtf8);
+  envelope.reserve(static_cast<unsigned>(n * 2U + 12U));
+  envelope = F("{\"log\":\"");
+  appendJsonEscaped(envelope, logUtf8);
+  envelope += F("\"}");
+
+  HTTPClient http;
+  if (!http.begin(client, String(kColorinkAppHttpDeviceLogsUrl))) {
+    Serial.println("colorink: device logs POST begin failed");
+    Serial.flush();
+    return;
+  }
+  http.setTimeout(kLogHttpTimeoutMs);
+  http.addHeader(kColorinkAppHttpHeaderClientId, COLORINK_DEVICE_ID);
+  http.addHeader(String("Content-Type"), String("application/json"));
+  const int code = http.POST(envelope);
+  Serial.printf("colorink: POST …/devices/logs → %d\n", code);
+  Serial.flush();
+  http.end();
+}
+
+void colorinkAppPostBootWakeLog(bool wakeup_from_rtc, int32_t battery_mv,
+                                int battery_percent,
+                                BootDisplayError overlay_err, int wifi_rssi) {
+  char logLine[416];
+  const int ln = std::snprintf(
+      logLine, sizeof(logLine),
+      "wake_rtc_timer=%d battery_mv=%ld battery_pct=%d display_status=\"%s\" "
+      "wifi_rssi=%d",
+      wakeup_from_rtc ? 1 : 0, static_cast<long>(battery_mv), battery_percent,
+      bootDisplayErrorHumanLogLabel(overlay_err), wifi_rssi);
+  if (ln <= 0 || static_cast<size_t>(ln) >= sizeof(logLine)) {
+    Serial.println("colorink: boot wake log line truncated");
+    Serial.flush();
+    return;
+  }
+
+  postDeviceLogsHttp(logLine);
 }

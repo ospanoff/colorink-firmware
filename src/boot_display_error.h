@@ -19,3 +19,9 @@ enum class BootDisplayError : uint8_t {
   BmpDecodeFailed,
   BmpPanelUnsupported,
 };
+
+/** Human-readable status: ``OK`` when ``None``, otherwise short panel-style
+ * text. Draw as an e-paper overlay only when ``error !=
+ * BootDisplayError::None``; logs may call for any value (including ``None`` →
+ * ``OK``). */
+const char *bootDisplayErrorHumanLogLabel(BootDisplayError e);

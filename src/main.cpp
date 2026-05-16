@@ -38,13 +38,15 @@ void setup() {
   printWakeBatteryToSerial(wakeup_from_rtc_timer, battery_mv, battery_percent);
   Serial.flush();
 
-  // boot_err: WiFi or HTTP→PSRAM; bmp_err: BMP decode / epaper paint (after begin).
+  // boot_err: WiFi or HTTP→PSRAM; bmp_err: BMP decode / epaper paint (after
+  // begin).
   BootDisplayError boot_err = BootDisplayError::None;
   uint8_t *bmpRam = nullptr;
   size_t bmpLen = 0;
 
   const BootDisplayError wifi_err = connectWifiStation();
-  if (wifi_err != BootDisplayError::None) {
+  const bool wifi_connected = (wifi_err == BootDisplayError::None);
+  if (!wifi_connected) {
     boot_err = wifi_err;
   } else {
     const BootDisplayError refresh_err =
@@ -52,7 +54,6 @@ void setup() {
     if (refresh_err != BootDisplayError::None) {
       boot_err = refresh_err;
     }
-    wipeWifiRadio();
   }
 
   Serial.println("epaper: begin…");
@@ -65,8 +66,8 @@ void setup() {
 
   BootDisplayError bmp_err = BootDisplayError::None;
   // Only paint when WiFi + fetch succeeded (boot_err == None). On failure, HTTP
-  // clears bmpRam; this guard makes that contract obvious and avoids painting if
-  // boot_err is ever set while a buffer exists.
+  // clears bmpRam; this guard makes that contract obvious and avoids painting
+  // if boot_err is ever set while a buffer exists.
   if (boot_err == BootDisplayError::None && bmpRam != nullptr && bmpLen > 0) {
     bmp_err = displayBmp(epaper, bmpRam, bmpLen);
   }
@@ -81,6 +82,12 @@ void setup() {
   if (bmpRam != nullptr) {
     heap_caps_free(bmpRam);
   }
+
+  if (wifi_connected) {
+    colorinkAppPostBootWakeLog(wakeup_from_rtc_timer, battery_mv,
+                               battery_percent, overlay_err, WiFi.RSSI());
+  }
+  wipeWifiRadio();
 
   enterDeepSleepWakeOnRtcMicros(kSleepAfterRefreshUs);
 }

@@ -4,9 +4,7 @@
 
 #include <Arduino.h>
 
-void batteryPinsIdleForSleep() {
-  pinMode(kBatAdcEnablePin, INPUT_PULLDOWN);
-}
+void batteryPinsIdleForSleep() { pinMode(kBatAdcEnablePin, INPUT_PULLDOWN); }
 
 int32_t measureBatteryMilliVolts() {
   analogReadResolution(12);
