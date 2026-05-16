@@ -1,6 +1,7 @@
 // Deep-sleep wake: WiFi → ColorInk BMP fetch → e-paper paint → RTC wake stub.
 
 #include "battery/battery.h"
+#include "board/user_led.h"
 #include "colorink_app/colorink_app_http.h"
 #include "config/app_config.h"
 #include "log/wake_log.h"
@@ -25,6 +26,7 @@ static void wipeWifiRadio() {
 }
 
 void setup() {
+  userLedWakeBegin();
   Serial.begin(115200);
   delay(500); // USB CDC often needs a moment before the first prints appear
 

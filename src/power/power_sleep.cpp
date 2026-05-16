@@ -1,5 +1,6 @@
 #include "power/power_sleep.h"
 #include "battery/battery.h"
+#include "board/user_led.h"
 
 #include <Arduino.h>
 
@@ -21,5 +22,6 @@ void enterDeepSleepWakeOnRtcMicros(uint64_t duration_micros) {
   Serial.printf("power_sleep: entering deep sleep (%llu us)\n",
                 static_cast<unsigned long long>(duration_micros));
   Serial.flush();
+  userLedSleepPrepare();
   esp_deep_sleep_start();
 }
