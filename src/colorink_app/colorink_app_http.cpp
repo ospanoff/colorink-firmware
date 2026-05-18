@@ -1,6 +1,7 @@
 #include "colorink_app/colorink_app_http.h"
 
 #include "colorink_app/colorink_app_config.h"
+#include "log/esp_reason_labels.h"
 
 #include <Arduino.h>
 #include <HTTPClient.h>
@@ -9,6 +10,7 @@
 #include <cstdio>
 #include <cstring>
 #include <esp_heap_caps.h>
+#include <esp_system.h>
 
 static void slog(const char *line) {
   Serial.println(line);
@@ -211,15 +213,17 @@ static void postDeviceLogsHttp(const char *logUtf8) {
   http.end();
 }
 
-void colorinkAppPostBootWakeLog(bool wakeup_from_rtc, int32_t battery_mv,
-                                int battery_percent,
-                                BootDisplayError overlay_err, int wifi_rssi) {
-  char logLine[416];
+void colorinkAppPostBootWakeLog(esp_sleep_wakeup_cause_t wakeup_cause,
+                                esp_reset_reason_t reset_reason, int32_t battery_mv,
+                                int battery_percent, BootDisplayError overlay_err,
+                                int wifi_rssi) {
+  char logLine[512];
   const int ln = std::snprintf(
       logLine, sizeof(logLine),
-      "wake_rtc_timer=%d battery_mv=%ld battery_pct=%d display_status=\"%s\" "
-      "wifi_rssi=%d",
-      wakeup_from_rtc ? 1 : 0, static_cast<long>(battery_mv), battery_percent,
+      "wakeup_cause=%s reset_reason=%s battery_mv=%ld battery_pct=%d "
+      "display_status=\"%s\" wifi_rssi=%d",
+      espWakeupCauseLogLabel(wakeup_cause), espResetReasonLogLabel(reset_reason),
+      static_cast<long>(battery_mv), battery_percent,
       bootDisplayErrorHumanLogLabel(overlay_err), wifi_rssi);
   if (ln <= 0 || static_cast<size_t>(ln) >= sizeof(logLine)) {
     Serial.println("colorink: boot wake log line truncated");

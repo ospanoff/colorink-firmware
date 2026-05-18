@@ -17,6 +17,7 @@
 #include <WiFi.h>
 #include <esp_heap_caps.h>
 #include <esp_sleep.h>
+#include <esp_system.h>
 
 EPaper epaper;
 
@@ -31,13 +32,13 @@ void setup() {
   delay(500); // USB CDC often needs a moment before the first prints appear
 
   const esp_sleep_wakeup_cause_t wakeup = esp_sleep_get_wakeup_cause();
-  const bool wakeup_from_rtc_timer = (wakeup == ESP_SLEEP_WAKEUP_TIMER);
+  const esp_reset_reason_t reset_reason = esp_reset_reason();
   const int32_t battery_mv = measureBatteryMilliVolts();
   const int battery_percent =
       approximateBatteryPercentNominal3700Mv(battery_mv);
 
   Serial.print("Wake: ");
-  printWakeBatteryToSerial(wakeup_from_rtc_timer, battery_mv, battery_percent);
+  printWakeBatteryToSerial(wakeup, battery_mv, battery_percent);
   Serial.flush();
 
   // boot_err: WiFi or HTTP→PSRAM; bmp_err: BMP decode / epaper paint (after
@@ -86,9 +87,10 @@ void setup() {
   }
 
   if (wifi_connected) {
-    colorinkAppPostBootWakeLog(wakeup_from_rtc_timer, battery_mv,
-                               battery_percent, overlay_err, WiFi.RSSI());
+    colorinkAppPostBootWakeLog(wakeup, reset_reason, battery_mv, battery_percent,
+                               overlay_err, WiFi.RSSI());
   }
+
   wipeWifiRadio();
 
   enterDeepSleepWakeOnRtcMicros(kSleepAfterRefreshUs);

@@ -1,10 +1,12 @@
 #include "log/wake_log.h"
 
+#include "log/esp_reason_labels.h"
+
 #include <Arduino.h>
 
-void printWakeBatteryToSerial(bool wakeup_from_rtc_timer, int32_t battery_mv,
-                              int battery_percent) {
-  Serial.print(wakeup_from_rtc_timer ? "Timer" : "Force");
+void printWakeBatteryToSerial(esp_sleep_wakeup_cause_t wakeup_cause,
+                              int32_t battery_mv, int battery_percent) {
+  Serial.print(espWakeupCauseLogLabel(wakeup_cause));
   if (battery_mv >= 0) {
     Serial.printf("  %ld mV", static_cast<long>(battery_mv));
     if (battery_percent >= 0) {
